@@ -650,6 +650,11 @@ static void usage(const char *argv0, VerbType verb, TestType tst, int connection
 			}
 		}
 
+		if (xpu_memory_supported()) {
+			printf("      --use_xpu=<xpu device id>");
+			printf(" Use selected XPU device for RDMA testing\n");
+		}
+
 		if (neuron_memory_supported()) {
 			printf("      --use_neuron=<logical neuron core id>");
 			printf(" Use selected logical neuron core for NeuronDirect RDMA testing\n");
@@ -924,6 +929,7 @@ static void init_perftest_params(struct perftest_parameters *user_param)
 	user_param->gpu_touch		= GPU_NO_TOUCH;
 	user_param->mmap_file		= NULL;
 	user_param->mmap_offset		= 0;
+	user_param->xpu_device_id	= 0;
 	user_param->iters_per_port[0]	= 0;
 	user_param->iters_per_port[1]	= 0;
 	user_param->wait_destroy	= 0;
@@ -2493,6 +2499,7 @@ int parser(struct perftest_parameters *user_param,char *argv[], int argc)
 	static int use_mlu_flag = 0;
 	static int use_mlu_dmabuf_flag = 0;
 	static int use_opencl_flag = 0;
+	static int use_xpu_flag = 0;
 	static int opencl_platform_id_flag = 0;
 	static int gpu_touch_flag = 0;
 	static int disable_pcir_flag = 0;
@@ -2678,6 +2685,7 @@ int parser(struct perftest_parameters *user_param,char *argv[], int argc)
 			{ .name = "gpu_touch",		.has_arg = 1, .flag = &gpu_touch_flag, .val = 1},
 			{ .name = "mmap",		.has_arg = 1, .flag = &mmap_file_flag, .val = 1},
 			{ .name = "mmap-offset",	.has_arg = 1, .flag = &mmap_offset_flag, .val = 1},
+			{ .name = "use_xpu",		.has_arg = 1, .flag = &use_xpu_flag, .val = 1},
 			{ .name = "ipv6",		.has_arg = 0, .flag = &ipv6_flag, .val = 1},
 			{ .name = "ipv6-addr",		.has_arg = 0, .flag = &ipv6_addr_flag, .val = 1},
 			#ifdef HAVE_IPV6
@@ -3114,6 +3122,7 @@ int parser(struct perftest_parameters *user_param,char *argv[], int argc)
 				/* We statically define memory type options so check if requested option is actually supported. */
 				if (((use_cuda_flag || use_cuda_bus_id_flag) && !cuda_memory_supported()) ||
 				    (use_cuda_dmabuf_flag && !cuda_memory_dmabuf_supported()) ||
+				    (use_xpu_flag && !xpu_memory_supported()) ||
 				    (use_rocm_flag && !rocm_memory_supported()) ||
 				    (use_rocm_dmabuf_flag && !rocm_memory_dmabuf_supported()) ||
 				    (use_neuron_flag && !neuron_memory_supported()) ||
@@ -3133,6 +3142,7 @@ int parser(struct perftest_parameters *user_param,char *argv[], int argc)
 				if (user_param->memory_type != MEMORY_HOST &&
 				    (mmap_file_flag || use_mlu_flag || use_neuron_flag || use_hl_flag ||
 					 (use_rocm_flag && user_param->memory_type != MEMORY_ROCM) ||
+					 (use_xpu_flag && user_param->memory_type != MEMORY_XPU) ||
 				     ((use_cuda_flag || use_cuda_bus_id_flag) && user_param->memory_type != MEMORY_CUDA))) {
 					fprintf(stderr, " Can't use multiple memory types\n");
 					return FAILURE;
@@ -3255,6 +3265,13 @@ int parser(struct perftest_parameters *user_param,char *argv[], int argc)
 					user_param->memory_type = MEMORY_OPENCL;
 					user_param->memory_create = opencl_memory_create;
 					use_opencl_flag = 0;
+				}
+
+				if (use_xpu_flag) {
+					CHECK_VALUE_NON_NEGATIVE(user_param->xpu_device_id,int,"XPU device",not_int_ptr);
+					user_param->memory_type = MEMORY_XPU;
+					user_param->memory_create = xpu_memory_create;
+					use_xpu_flag = 0;
 				}
 				if (opencl_platform_id_flag) {
 					CHECK_VALUE_NON_NEGATIVE(user_param->opencl_platform_id,int,"OPENCL Platform ID",not_int_ptr);

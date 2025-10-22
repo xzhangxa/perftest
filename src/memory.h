@@ -28,4 +28,6 @@ struct memory_ctx {
 	void *(*copy_buffer_to_buffer)(void *dest, const void *src, size_t size);
 };
 
+#include "xpu_memory.h"
+#include "xpu_memory.h"
 #endif /* MEMORY_H */

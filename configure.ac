@@ -424,6 +424,33 @@ AS_IF([test "x$enable_neuron" = xyes], [
 
 AM_CONDITIONAL([NEURON], [test x$enable_neuron = xyes])
 
+AC_ARG_ENABLE([xpu],
+              [AS_HELP_STRING([--enable-xpu],
+                              [Enable XPU benchmarks])
+              ],
+              [],
+              [enable_xpu=no])
+
+AC_ARG_WITH([xpu],
+            [AS_HELP_STRING([--with-xpu=@<:@XPU installation path@:>@],
+                            [Provide path to XPU installation])
+            ],
+            [AS_CASE([$with_xpu],
+                     [yes|no], [],
+                     [CPPFLAGS="-I$with_xpu/include $CPPFLAGS"
+                      LDFLAGS="-L$with_xpu/lib -Wl,-rpath=$with_xpu/lib $LDFLAGS"])
+            ])
+
+AS_IF([test "x$enable_xpu" = xyes], [
+       AC_DEFINE([HAVE_XPU], [1], [Enable XPU benchmarks])
+       AC_CHECK_HEADERS([level_zero/ze_api.h], [],
+                        [AC_MSG_ERROR([could not find ze_api.h in include path])])
+       AC_SEARCH_LIBS([zeInitDrivers], [ze_loader], [],
+                      [AC_MSG_ERROR([could not find library, ze_loader])])
+       ])
+
+AM_CONDITIONAL([XPU], [test x$enable_xpu = xyes])
+
 AC_ARG_ENABLE([hl],
 	[AS_HELP_STRING([--enable-hl],
 		[Enable Habana Labs benchmarks])
